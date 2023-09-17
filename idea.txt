@@ -1,0 +1,400 @@
+****
+HOLD
+
+rubik's cube
+****
+
+creating a chrome diano game
+
+-> creating the surface[plane] for diano and hurdles
+-> creating the diano with controls like on spacebar press, it should jump
+-> a scene where the environment is created
+    -> environment 
+    -> some volumetrics
+    -> trees and ground stuff should contain animals
+-> adding obstacles when collide, game should end
+-> adding html and css
+
+
+
+
+
+
+
+
+import "./style.css";
+import * as THREE from "three";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
+import * as dat from "dat.gui";
+import gsap from "gsap";
+
+const cubeTexture = new THREE.CubeTextureLoader();
+const textureLoader = new THREE.TextureLoader();
+
+const envMap = cubeTexture.load([
+  "./environment/px.png",
+  "./environment/nx.png",
+  "./environment/py.png",
+  "./environment/ny.png",
+  "./environment/pz.png",
+  "./environment/nz.png",
+]);
+
+const groundColorTexture = textureLoader.load("/textures/ground/color.png");
+const groundAmbientOcclusionTexture = textureLoader.load(
+  "/textures/ground/ao.png"
+);
+const groundHeightTexture = textureLoader.load(
+  "/textures/ground/displacement.png"
+);
+const groundNormalTexture = textureLoader.load("/textures/ground/normal.png");
+const groundRoughnessTexture = textureLoader.load(
+  "/textures/ground/roughness.png"
+);
+
+groundColorTexture.repeat.set(8, 8);
+groundAmbientOcclusionTexture.repeat.set(8, 8);
+groundNormalTexture.repeat.set(8, 8);
+groundRoughnessTexture.repeat.set(8, 8);
+groundColorTexture.wrapS = THREE.RepeatWrapping;
+groundAmbientOcclusionTexture.wrapS = THREE.RepeatWrapping;
+groundNormalTexture.wrapS = THREE.RepeatWrapping;
+groundRoughnessTexture.wrapS = THREE.RepeatWrapping;
+groundColorTexture.wrapT = THREE.RepeatWrapping;
+groundAmbientOcclusionTexture.wrapT = THREE.RepeatWrapping;
+groundNormalTexture.wrapT = THREE.RepeatWrapping;
+groundRoughnessTexture.wrapT = THREE.RepeatWrapping;
+
+const GUIControls = () => {
+  const gui = new dat.GUI();
+
+  // Camera
+  gui
+    .add(camera.position, "x")
+    .min(-10)
+    .max(10)
+    .step(0.01)
+    .name("CameraPositionX");
+  gui
+    .add(camera.position, "y")
+    .min(-10)
+    .max(10)
+    .step(0.01)
+    .name("CameraPositionY");
+  gui
+    .add(camera.position, "z")
+    .min(-10)
+    .max(10)
+    .step(0.01)
+    .name("CameraPositionZ");
+  // gui
+  //   .add(camera.rotation, "x")
+  //   .min(-10)
+  //   .max(10)
+  //   .step(0.01)
+  //   .name("CameraRotationX")
+  //   .onChange(() => {
+  //     console.log("CameraRotationX");
+  //   });
+  // gui
+  //   .add(camera.rotation, "y")
+  //   .min(-10)
+  //   .max(10)
+  //   .step(0.01)
+  //   .name("CameraRotationY");
+  // gui
+  //   .add(camera.rotation, "z")
+  //   .min(-10)
+  //   .max(10)
+  //   .step(0.01)
+  //   .name("CameraRotationZ");
+
+  // Diano
+  gui
+    .add(diano.position, "x")
+    .min(-10)
+    .max(15)
+    .step(0.01)
+    .name("DianoPositionX");
+  gui
+    .add(diano.position, "y")
+    .min(-10)
+    .max(10)
+    .step(0.01)
+    .name("DianoPositionY");
+  gui
+    .add(diano.position, "z")
+    .min(-10)
+    .max(10)
+    .step(0.01)
+    .name("DianoPositionZ");
+  gui
+    .add(obst.position, "x")
+    .min(-30)
+    .max(60)
+    .step(0.01)
+    .name("obstaclePositionX");
+  gui
+    .add(obst.position, "y")
+    .min(-10)
+    .max(10)
+    .step(0.01)
+    .name("obstaclePositionY");
+  gui
+    .add(obst.position, "z")
+    .min(-10)
+    .max(10)
+    .step(0.01)
+    .name("obstaclePositionZ");
+
+  gui
+    .add(directionalLight2.position, "x")
+    .min(-55)
+    .max(60)
+    .step(0.01)
+    .name("LightPositionX");
+  gui
+    .add(directionalLight2.position, "y")
+    .min(-55)
+    .max(60)
+    .step(0.01)
+    .name("LightPositionY");
+  gui
+    .add(directionalLight2.position, "z")
+    .min(-55)
+    .max(60)
+    .step(0.01)
+    .name("LightPositionZ");
+
+  gui
+    .add(target.position, "x")
+    .min(-30)
+    .max(50)
+    .step(0.01)
+    .name("LightAdjustPosition");
+};
+
+// Cursor coordinates
+const cursor = {
+  x: 0,
+  y: 0,
+};
+
+window.addEventListener("mousemove", (event) => {
+  cursor.x = -(event.clientX / sizes.width - 0.5);
+  cursor.y = event.clientY / sizes.height - 0.5;
+});
+
+// Canvas
+const canvas = document.querySelector("canvas.webgl");
+
+// Scene
+const scene = new THREE.Scene();
+
+const foggyBackground = () => {
+  // scene.background = envMap;
+  // scene.environment = envMap;
+  const fogColor = new THREE.Color(0xf2f8f7); // Color of the fog
+  const fog = new THREE.Fog(fogColor, 30, 50);
+  scene.fog = fog;
+  // const fogDensity = 0.05; // Adjust this value to control the fog density
+  scene.background = fogColor;
+
+  // scene.fog = new THREE.FogExp2(fogColor, fogDensity);
+};
+
+// Sizes
+const sizes = {
+  width: window.innerWidth,
+  height: window.innerHeight,
+};
+let mesh = null;
+// Creating a platform for the game
+const platform = () => {
+  const material = new THREE.MeshStandardMaterial({
+    map: groundColorTexture,
+    transparent: true,
+    aoMap: groundAmbientOcclusionTexture,
+    displacementMap: groundHeightTexture,
+    displacementScale: 0.1,
+    normalMap: groundNormalTexture,
+    roughnessMap: groundRoughnessTexture,
+  });
+  // material.color = new THREE.Color(0xff00ff);
+  mesh = new THREE.Mesh(new THREE.PlaneBufferGeometry(100, 100), material);
+  mesh.rotation.x = -Math.PI * 0.5;
+  // mesh.rotation.z = Math.PI * 0.3;
+  mesh.position.set(-3, -0.1, -30);
+  mesh.receiveShadow = true;
+  scene.add(mesh);
+};
+
+// Adding the dinosaur
+let diano;
+const dianosaur = () => {
+  const material = new THREE.MeshStandardMaterial({ color: "#0000ff" });
+  diano = new THREE.Mesh(new THREE.BoxBufferGeometry(2, 2, 2), material);
+  diano.position.x = -10;
+  diano.position.y = 1.0001;
+  diano.castShadow = true;
+  scene.add(diano);
+};
+
+const jumpOnClick = (event) => {
+  console.log(camera.position);
+  if (event.keyCode === 32 && diano.position.y <= 1.1) {
+    gsap.to(diano.position, { duration: 0.5, delay: 0, y: 6 });
+    gsap.to(diano.position, { duration: 0.9, delay: 0.4, y: 1.0001 });
+  }
+  // console.log(x);
+};
+window.addEventListener("keydown", jumpOnClick);
+
+let obst;
+const createObstacle = (x) => {
+  const cube = new THREE.BoxBufferGeometry(1, 1, 1);
+  const mat = new THREE.MeshStandardMaterial({ color: "#ff0000" });
+  obst = new THREE.Mesh(cube, mat);
+  obst.position.y = 0.5;
+  obst.position.x = x;
+  obst.receiveShadow = true;
+  obst.castShadow = true;
+  scene.add(obst);
+  return obst;
+};
+
+const obstacles = [];
+let obstacle;
+let currentX = 60;
+const target = new THREE.Object3D();
+target.position.x = 15;
+scene.add(target);
+
+// obstacles.push(createObstacle(currentX));
+
+for (let i = 0; i < 11; i++) {
+  obstacle = createObstacle(i * 8 + 60);
+  obstacles.push(obstacle);
+}
+
+let directionalLight1 = null;
+let directionalLight2 = null;
+// Lights
+const lights = () => {
+  const ambientLight = new THREE.AmbientLight();
+  ambientLight.color = new THREE.Color(0xffffff);
+  ambientLight.intensity = 1;
+  scene.add(ambientLight);
+
+  directionalLight1 = new THREE.DirectionalLight("#ffffff", 3);
+  directionalLight1.position.set(-55, 25, 0);
+  directionalLight1.castShadow = true;
+  directionalLight1.shadow.mapSize.width = 1024;
+  directionalLight1.shadow.mapSize.height = 1024;
+  directionalLight2 = new THREE.DirectionalLight("#ffffff", 3);
+  directionalLight2.position.set(-25, 25, 0);
+  directionalLight2.castShadow = true;
+  directionalLight2.shadow.mapSize.width = 1024;
+  directionalLight2.shadow.mapSize.height = 1024;
+
+  directionalLight2.target = target;
+
+  // Directional light camera helper
+  const cameraHelper = new THREE.CameraHelper(directionalLight1.shadow.camera);
+  const cameraHelper1 = new THREE.CameraHelper(directionalLight2.shadow.camera);
+  scene.add(cameraHelper, cameraHelper1);
+
+  scene.add(directionalLight1, directionalLight2);
+};
+
+const Helper = (light) => {
+  const lightHelper = new THREE.DirectionalLightHelper(light);
+  const axesHelper = new THREE.AxesHelper();
+  scene.add(lightHelper, axesHelper);
+
+  lightHelper.visible = false;
+};
+// foggyBackground();
+platform();
+lights();
+Helper(directionalLight1);
+Helper(directionalLight2);
+dianosaur();
+// Adding resizer for window width changes
+window.addEventListener("resize", () => {
+  // Updating the sizes
+  sizes.width = window.innerWidth;
+  sizes.height = window.innerHeight;
+
+  // Updating camera aspects
+  camera.aspect = sizes.width / sizes.height;
+  camera.updateProjectionMatrix();
+
+  // Updating renderer
+  renderer.setSize(sizes.width, sizes.height);
+
+  // Limiting the pixel ratios
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+});
+
+// Making full screen by listening to double click event
+window.addEventListener("dblclick", () => {
+  if (!document.fullscreenElement) {
+    canvas.requestFullscreen();
+  } else {
+    document.exitFullscreen();
+  }
+});
+
+const camera = new THREE.PerspectiveCamera(
+  60,
+  sizes.width / sizes.height,
+  0.1,
+  100
+);
+camera.position.set(-12.31767822798404, 4.612303161761068, 11.903488518262558);
+
+// if (diano) camera.lookAt(diano);
+// camera.rotation.set(0, 0, 0);
+scene.add(camera);
+
+//Ordbit controllers controls
+const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true;
+
+// Renderer
+const renderer = new THREE.WebGLRenderer({
+  canvas: canvas,
+  antialias: true,
+});
+renderer.setSize(sizes.width, sizes.height);
+// Limiting the pixel ratios
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.physicallyCorrectLights = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 3;
+
+// Orbit control to the camera
+const tick = () => {
+  for (let i = 0; i < obstacles.length; i++) {
+    obstacle = obstacles[i];
+    obstacle.position.x -= 0.1; // Adjust the speed as needed
+
+    // Check if the cube has reached its destination
+    if (obstacle.position.x < -30) {
+      // Remove the cube from the scene
+      obstacle.position.x = 60;
+    }
+  }
+
+  // Update controls
+  controls.update();
+  // Renderer
+  renderer.render(scene, camera);
+  window.requestAnimationFrame(tick);
+};
+
+tick();
+GUIControls();
